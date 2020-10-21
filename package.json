@@ -8,5 +8,11 @@
   },
   "keywords": [],
   "author": "William Blevins",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "jest": "^26.6.0"
+  },
+  "jest": {
+    "verbose": true
+  }
 }
