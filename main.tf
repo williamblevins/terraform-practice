@@ -24,6 +24,8 @@ provider "aws" {
   region          = var.aws_region
 }
 
+data "aws_caller_identity" "current" { }
+
 data "archive_file" "message_dispatch_lambda_zip" {
   type          = "zip"
   source_dir    = "src"
@@ -31,13 +33,18 @@ data "archive_file" "message_dispatch_lambda_zip" {
 }
 
 resource "aws_lambda_function" "message_dispatch_lambda_tf" {
-  filename         = "message_dispatch_lambda_function.zip"
+  filename         = "build/message_dispatch_lambda_function.zip"
   function_name    = "message_dispatch_lambda"
   role             = aws_iam_role.message_dispatch_lambda_role_tf.arn
   handler          = "message_dispatch_lambda.handler"
   source_code_hash = data.archive_file.message_dispatch_lambda_zip.output_base64sha256
   runtime          = "nodejs12.x"
   timeout          = 30
+  environment {
+    variables = {
+      AWS_ACCOUNT_ID: data.aws_caller_identity.current.account_id
+    }
+  }
 }
 
 resource "aws_iam_role" "message_dispatch_lambda_role_tf" {
