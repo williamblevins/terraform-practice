@@ -16,8 +16,12 @@ const SQS = new AWS.SQS({apiVersion: '2012-11-05'});
 exports.handler = (event, context, callback) => {
     const region = process.env.AWS_REGION;
     const account = process.env.AWS_ACCOUNT_ID;
-    const name = `${event.source}_${event.type}_queue`
-    const url = `https://sqs.${region}.amazonaws.com/${account}/${name}`
-    console.log(url);
+
+    event.Records.forEach(record => {
+        const body = JSON.parse(record.body);
+        const name = `${body.source}_${body.type}_queue`
+        const url = `https://sqs.${region}.amazonaws.com/${account}/${name}`
+        console.log(url);
+    })
     callback(null, 'great success');
 }
