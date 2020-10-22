@@ -18,7 +18,3 @@ variable "queue_mapping" {
     ]
   }
 }
-//
-//resource "local_file" "" {
-//  filename = ""
-//}
