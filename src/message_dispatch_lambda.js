@@ -1,7 +1,9 @@
 // nodejs12x runtime AWS Lambda function
 
-const aws = require('aws-sdk');
-const sqs = new AWS.SQS({apiVersion: '2012-11-05'});
+const AWS = require('aws-sdk');
+AWS.config.update({region: process.env.AWS_REGION});
+
+const SQS = new AWS.SQS({apiVersion: '2012-11-05'});
 
 // Event shape example.
 // {

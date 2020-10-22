@@ -26,6 +26,19 @@ provider "aws" {
 
 data "aws_caller_identity" "current" { }
 
+data "archive_file" "message_dispatch_libs_zip" {
+  type          = "zip"
+  source_dir    = "node_modules"
+  output_path   = "build/message_dispatch_lambda_libs.zip"
+}
+
+resource "aws_lambda_layer_version" "message_dispatch_lambda_libs_tf" {
+  filename   = "build/message_dispatch_lambda_libs.zip"
+  layer_name = "message_dispatch_lambda_libs"
+
+  compatible_runtimes = ["nodejs12.x"]
+}
+
 data "archive_file" "message_dispatch_lambda_zip" {
   type          = "zip"
   source_dir    = "src"
@@ -45,6 +58,9 @@ resource "aws_lambda_function" "message_dispatch_lambda_tf" {
       AWS_ACCOUNT_ID: data.aws_caller_identity.current.account_id
     }
   }
+  layers = [
+    aws_lambda_layer_version.message_dispatch_lambda_libs_tf.arn
+  ]
 }
 
 resource "aws_iam_role" "message_dispatch_lambda_role_tf" {
