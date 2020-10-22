@@ -1,6 +1,20 @@
 # to test: run `terraform plan`
 # to deploy: run `terraform apply`
 
+terraform {
+  required_version = ">= 0.13.4"
+  required_providers {
+    archive = {
+      version = ">= 2.0.0"
+      source = "hashicorp/archive"
+    }
+    aws = {
+      version = ">= 3.11.0"
+      source = "hashicorp/aws"
+    }
+  }
+}
+
 variable "aws_region" {
   default = "us-east-1"
 }
@@ -11,9 +25,9 @@ provider "aws" {
 }
 
 data "archive_file" "message_dispatch_lambda_zip" {
-    type          = "zip"
-    source_file   = "src/message_dispatch_lambda.js"
-    output_path   = "build/message_dispatch_lambda_function.zip"
+  type          = "zip"
+  source_dir    = "src"
+  output_path   = "build/message_dispatch_lambda_function.zip"
 }
 
 resource "aws_lambda_function" "message_dispatch_lambda_tf" {
@@ -65,5 +79,23 @@ resource "aws_sqs_queue" "message_dispatch_lambda_source_dlq_tf" {
   max_message_size           = 2048
   message_retention_seconds  = 1209600
   receive_wait_time_seconds  = 0
+  visibility_timeout_seconds = 30
+}
+
+resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
+  for_each = toset(flatten(
+    [
+      for key in keys(var.queue_mapping): [
+        for value in lookup(var.queue_mapping, key): [
+          join("_", [key, value, "queue"])
+        ]
+      ]
+    ]
+  ))
+  name = each.value
+  delay_seconds = 0
+  max_message_size = 2048
+  message_retention_seconds = 1209600
+  receive_wait_time_seconds = 0
   visibility_timeout_seconds = 30
 }
