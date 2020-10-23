@@ -8,7 +8,7 @@ const SQS = new AWS.SQS({apiVersion: '2012-11-05'});
 // Event shape example.
 // {
 //     "source": "github",
-//     "type": "pull_request",
+//     "type": "pull_request_merged",
 //     "reference_url": "https://github.com/EOSIO/my-test-repo",
 //     "date": "2018-10-04 18:01:58 UTC"
 // }
@@ -26,12 +26,13 @@ exports.handler = (event, context, callback) => {
         console.log(`SQS Endpoint: ${url}`);
 
         const sqs_request = {
-            MessageBody: body,
+            MessageBody: record.body,
             QueueUrl: url
         }
         SQS.sendMessage(sqs_request, (err, sqs_response) => {
             if (err) {
                 console.log("Error", err);
+                throw err;
             } else {
                 console.log("Message sent", sqs_response.MessageId);
             }
