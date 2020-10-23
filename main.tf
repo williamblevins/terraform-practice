@@ -102,6 +102,19 @@ data "aws_iam_policy_document" "message_dispatch_lambda_policy_doc_tf" {
   }
   statement {
     actions   = [
+      "kms:Decrypt",
+      "kms:DescribeKey",
+      "kms:Encrypt",
+      "kms:GenerateDataKey*",
+      "kms:ReEncrypt*"
+    ]
+    effect = "Allow"
+    resources = [
+      aws_kms_key.message_dispatch_queue_kms.arn
+    ]
+  }
+  statement {
+    actions   = [
       "sqs:ChangeMessageVisibility",
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes",
@@ -152,7 +165,7 @@ data aws_iam_policy_document "default_queue_policy_doc_tf" {
 resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
   name                       = "message_dispatch_lambda_source_queue"
   delay_seconds              = 0
-  kms_master_key_id          = "aws/sqs"
+  kms_master_key_id          = aws_kms_key.message_dispatch_queue_kms.id
   max_message_size           = 2048
   message_retention_seconds  = 1209600
   receive_wait_time_seconds  = 10
@@ -171,7 +184,7 @@ resource "aws_sqs_queue_policy" "message_dispatch_lambda_source_queue_policy_tf"
 resource "aws_sqs_queue" "message_dispatch_lambda_source_dlq_tf" {
   name                       = "message_dispatch_lambda_source_dlq"
   delay_seconds              = 0
-  kms_master_key_id          = "aws/sqs"
+  kms_master_key_id          = aws_kms_key.message_dispatch_queue_kms.id
   max_message_size           = 2048
   message_retention_seconds  = 1209600
   receive_wait_time_seconds  = 0
@@ -209,9 +222,55 @@ resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
   ))
   name = each.value
   delay_seconds = 0
-  kms_master_key_id = "aws/sqs"
+  kms_master_key_id = aws_kms_key.message_dispatch_queue_kms.id
   max_message_size = 2048
   message_retention_seconds = 1209600
   receive_wait_time_seconds = 0
   visibility_timeout_seconds = 30
+}
+
+data "aws_iam_policy_document" "default_kms_policy_doc_tf" {
+  statement {
+    actions   = ["kms:*"]
+    effect = "Allow"
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${var.aws_partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "kms:GenerateDataKey",
+      "kms:Decrypt"
+    ]
+    effect = "Allow"
+    principals {
+      identifiers = ["sqs.amazonaws.com"]
+      type = "Service"
+    }
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "kms:GenerateDataKey",
+      "kms:Decrypt"
+    ]
+    effect = "Allow"
+    principals {
+      identifiers = [aws_iam_role.message_dispatch_lambda_role_tf.arn]
+      type = "AWS"
+    }
+    resources = ["*"]
+  }
+}
+
+resource "aws_kms_key" "message_dispatch_queue_kms" {
+  customer_master_key_spec = "SYMMETRIC_DEFAULT"
+  description              = "Message dispatch queue kms keys."
+  deletion_window_in_days  = 30
+  enable_key_rotation      = true
+  is_enabled               = true
+  key_usage                = "ENCRYPT_DECRYPT"
+  policy                   = data.aws_iam_policy_document.default_kms_policy_doc_tf.json
 }
