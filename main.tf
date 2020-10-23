@@ -128,11 +128,33 @@ resource "aws_iam_policy_attachment" "message_dispatch_lambda_policy_attachment_
   policy_arn = aws_iam_policy.message_dispatch_lambda_policy_tf.arn
 }
 
+data aws_iam_policy_document "default_queue_policy_doc_tf" {
+  statement {
+    actions = [
+      "sqs:ChangeMessageVisibility",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+      "sqs:ReceiveMessage",
+      "sqs:SendMessage"
+    ]
+    effect = "Allow"
+    principals {
+      identifiers = [
+        aws_iam_role.message_dispatch_lambda_role_tf.arn
+      ]
+      type = "AWS"
+    }
+    resources = ["*"]
+  }
+}
+
 resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
   name                       = "message_dispatch_lambda_source_queue"
   delay_seconds              = 0
+  kms_master_key_id          = "aws/sqs"
   max_message_size           = 2048
   message_retention_seconds  = 1209600
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 30
   redrive_policy = jsonencode({
@@ -144,8 +166,10 @@ resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
 resource "aws_sqs_queue" "message_dispatch_lambda_source_dlq_tf" {
   name                       = "message_dispatch_lambda_source_dlq"
   delay_seconds              = 0
+  kms_master_key_id          = "aws/sqs"
   max_message_size           = 2048
   message_retention_seconds  = 1209600
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds  = 0
   visibility_timeout_seconds = 30
 }
@@ -172,8 +196,10 @@ resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
   ))
   name = each.value
   delay_seconds = 0
+  kms_master_key_id = "aws/sqs"
   max_message_size = 2048
   message_retention_seconds = 1209600
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds = 0
   visibility_timeout_seconds = 30
 }
