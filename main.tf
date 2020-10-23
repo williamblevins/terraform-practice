@@ -146,6 +146,7 @@ data aws_iam_policy_document "default_queue_policy_doc_tf" {
     }
     resources = ["*"]
   }
+  depends_on = [aws_iam_role.message_dispatch_lambda_role_tf]
 }
 
 resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
@@ -154,7 +155,6 @@ resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
   kms_master_key_id          = "aws/sqs"
   max_message_size           = 2048
   message_retention_seconds  = 1209600
-  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 30
   redrive_policy = jsonencode({
@@ -163,15 +163,24 @@ resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
   })
 }
 
+resource "aws_sqs_queue_policy" "message_dispatch_lambda_source_queue_policy_tf" {
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
+  queue_url = aws_sqs_queue.message_dispatch_lambda_source_queue_tf.id
+}
+
 resource "aws_sqs_queue" "message_dispatch_lambda_source_dlq_tf" {
   name                       = "message_dispatch_lambda_source_dlq"
   delay_seconds              = 0
   kms_master_key_id          = "aws/sqs"
   max_message_size           = 2048
   message_retention_seconds  = 1209600
-  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds  = 0
   visibility_timeout_seconds = 30
+}
+
+resource "aws_sqs_queue_policy" "message_dispatch_lambda_source_dlq_policy_tf" {
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
+  queue_url = aws_sqs_queue.message_dispatch_lambda_source_dlq_tf.id
 }
 
 resource "aws_lambda_event_source_mapping" "message_dispatch_lambda_source_mapping_tf" {
@@ -179,9 +188,13 @@ resource "aws_lambda_event_source_mapping" "message_dispatch_lambda_source_mappi
   enabled = true
   event_source_arn = aws_sqs_queue.message_dispatch_lambda_source_queue_tf.arn
   function_name    = aws_lambda_function.message_dispatch_lambda_tf.arn
-  depends_on = [
-    aws_iam_policy.message_dispatch_lambda_policy_tf
-  ]
+  depends_on = [aws_iam_policy.message_dispatch_lambda_policy_tf]
+}
+
+resource "aws_sqs_queue_policy" "message_dispatch_lambda_sink_policy_tf" {
+  for_each = aws_sqs_queue.message_dispatch_lambda_sink_tf
+  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
+  queue_url = each.value.id
 }
 
 resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
@@ -199,7 +212,6 @@ resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
   kms_master_key_id = "aws/sqs"
   max_message_size = 2048
   message_retention_seconds = 1209600
-  policy = data.aws_iam_policy_document.default_queue_policy_doc_tf.json
   receive_wait_time_seconds = 0
   visibility_timeout_seconds = 30
 }
