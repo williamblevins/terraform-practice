@@ -15,6 +15,10 @@ terraform {
   }
 }
 
+variable "aws_partition" {
+  default = "aws"
+}
+
 variable "aws_region" {
   default = "us-east-1"
 }
@@ -83,6 +87,47 @@ resource "aws_iam_role" "message_dispatch_lambda_role_tf" {
 EOF
 }
 
+data "aws_iam_policy_document" "message_dispatch_lambda_policy_doc_tf" {
+  statement {
+    actions   = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:DescribeLogStreams",
+      "logs:PutLogEvents"
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws_partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+    ]
+  }
+  statement {
+    actions   = [
+      "sqs:ChangeMessageVisibility",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes",
+      "sqs:ReceiveMessage",
+      "sqs:SendMessage"
+    ]
+    effect = "Allow"
+    resources = [
+      "arn:${var.aws_partition}:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "message_dispatch_lambda_policy_tf" {
+  name        = "message_dispatch_lambda_policy"
+  path        = "/"
+  description = "Permissions for message dispatch lambda."
+  policy      = data.aws_iam_policy_document.message_dispatch_lambda_policy_doc_tf.json
+}
+
+resource "aws_iam_policy_attachment" "message_dispatch_lambda_policy_attachment_tf" {
+  name       = "test-message_dispatch_lambda_policy_attachment"
+  roles      = [aws_iam_role.message_dispatch_lambda_role_tf.name]
+  policy_arn = aws_iam_policy.message_dispatch_lambda_policy_tf.arn
+}
+
 resource "aws_sqs_queue" "message_dispatch_lambda_source_queue_tf" {
   name                       = "message_dispatch_lambda_source_queue"
   delay_seconds              = 0
@@ -103,6 +148,16 @@ resource "aws_sqs_queue" "message_dispatch_lambda_source_dlq_tf" {
   message_retention_seconds  = 1209600
   receive_wait_time_seconds  = 0
   visibility_timeout_seconds = 30
+}
+
+resource "aws_lambda_event_source_mapping" "message_dispatch_lambda_source_mapping_tf" {
+  batch_size = 1
+  enabled = true
+  event_source_arn = aws_sqs_queue.message_dispatch_lambda_source_queue_tf.arn
+  function_name    = aws_lambda_function.message_dispatch_lambda_tf.arn
+  depends_on = [
+    aws_iam_policy.message_dispatch_lambda_policy_tf
+  ]
 }
 
 resource "aws_sqs_queue" "message_dispatch_lambda_sink_tf" {
