@@ -1,6 +1,6 @@
 # terraform-practice
 
-###Tested with various events on the source queue:
+### Tested with various events on the source queue:
 ```
 {
   "source": "github",
@@ -18,6 +18,11 @@
   "date": "2018-10-04 18:01:58 UTC"
 }
 ```
+
+### Tested infrastructure dependencies
+1. `terraform apply`
+1. `terraform destroy`
+1. `terraform apply`
 
 ### Extending supported types
 1. Update `variables.tf` and run `terraform apply`.
