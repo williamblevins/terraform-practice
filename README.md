@@ -28,6 +28,8 @@
 1. Update `variables.tf` and run `terraform apply`.
 
 ### Additional requirements for real operations.
-1. Unit tests.
+1. Testing
+ 1. Unit testing especially around exception handling: retryable vs non-retrable errors.
+ 1. Integration testing with a test queue endpoint.
 2. Possibly optimize for non-1 batch size and SQS.sendMessageBatch.
 3. Alarms and monitoring.
